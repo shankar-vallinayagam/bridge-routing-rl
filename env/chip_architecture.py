@@ -1,3 +1,6 @@
+import numpy as np
+from collections import deque
+
 class ChipHardware:
     """Physical topology of a quantum processor.
     
@@ -24,9 +27,27 @@ class ChipHardware:
 
 
     def _compute_shortest_paths(self):
-        '''TODO: Uses BFS from all points to spit out shortest paths'''
-        distances = []
-        parent = []
+        '''Uses BFS from all points to get shortest distances and parent pointers for path reconstruction
+        
+        distances[i][j] = hop distance from i to j (-1 if unreachable)
+        parent[i][j] = parent node of j on shortest path from i (-1 if no such path), can be used to reconstruct path
+        '''
+        Q = self.qubit_count
+        distances = np.full((Q,Q), -1, dtype=np.int64)
+        parent = [[None]*Q for node in range(Q)]
+
+        for src in range(Q):
+            # Run BFS from src through whole graph
+            distances[src, src] = 0
+            queue = deque([src])
+            while queue:
+                u = queue.popleft()
+                for v in self.adj_list[u]:
+                    if distances[src, v] == -1:
+                        distances[src, v] = distances[src, u] + 1
+                        parent[src, v] = u
+                        queue.append(v)
+        
         return distances, parent
     
     def _compute_edge_list(self):
@@ -39,5 +60,13 @@ class ChipHardware:
 
     
     def get_path(self, a, b):
-        """TODO: Gets shortest path from a to b"""
+        """Gets shortest path from a to b. If no such exists, return None"""
+        if self.distances[a, b] is None:
+            return None
+
+        path = [b]
+        while path[-1] != a:
+            path.append(self.parent[a, path[-1]])
+        path.reverse()
+        return path
     
