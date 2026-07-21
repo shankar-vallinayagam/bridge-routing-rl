@@ -33,13 +33,11 @@ class GateSequence:
     def to_qiskit(self):
         '''TODO:Converts to qiskit circuit'''
 
-    def to_QASM(self):
-        '''TODO:converts to QASM format'''
-
-    def preliminary_swap(self, mappings):
+    def hardware_mapping(self, mappings):
         '''Before any gates are run, we can simply permute our choice of qubits for free.
         Mappings is a list where the index gives the position of the logical qubit and
-        the value gives the index in hardware it is mapped to'''
+        the value gives the index in hardware it is mapped to. This is always done at
+        the end, so we don't bother with changing the interaction matrix'''
         original = self.circuit.copy()
         for a, b in enumerate(mappings):
             for i in range(len(original)):
@@ -53,7 +51,6 @@ class GateSequence:
                         self.circuit[i][1] = b
                     elif original[i][1] == b:
                         self.circuit[i][1] = a
-        self.interaction_mat = self.interaction_mat[np.ix_(mappings, mappings)]
 
     def check_valid(self, index):
         '''Returns whether the gate at the given index can take place on the given hardware'''
@@ -62,6 +59,18 @@ class GateSequence:
             return b in self.architecture.adj_list[a]
         else:
             return True
+        
+    def attempt_compile(self, index):
+        i = index
+        successfully_compiled = 0
+        while i < len(self.circuit) and self.check_valid(i):
+            if self.circuit[i][0] == "cx":
+                successfully_compiled += 1
+                a, b = self.circuit[i][1]
+                self.interaction_mat[a][b] -= 1
+                self.interaction_mat[b][a] -= 1
+            i += 1
+        return i, successfully_compiled
  
     def insert_swap(self, index, a, b):
         '''Inserts a swap gate where index i is (gate previously at index i goes to i+3). 
@@ -78,28 +87,32 @@ class GateSequence:
             raise ValueError("Qubits not adjacent, cannot swap")
 
     def convert_bridge(self, index):
-       '''Converts the CNOT between 2 points into a BRIDGE gate between them, see
-       https://link.springer.com/chapter/10.1007/978-3-032-13852-1_32 for details'''
-       a, b = self.circuit[index][1]
-       # delete the existing CNOT at our index
-       del self.circuit[index]
-       # get the shortest path between these qubits
-       path = self.architecture.get_path(a, b)
-       for j in range(2):
+        '''Converts the CNOT between 2 points into a BRIDGE gate between them, see
+        https://link.springer.com/chapter/10.1007/978-3-032-13852-1_32 for details.
+        returns gates added so index can be changed accordingly'''
+        a, b = self.circuit[index][1]
+        # delete the existing CNOT at our index
+        del self.circuit[index]
+        # get the shortest path between these qubits
+        path = self.architecture.get_path(a, b)
+        for j in range(2):
             for i in range(1, len(path)-1):
                 self.circuit.insert(index, ["cx", [path[i], path[i+1]]])
             for i in range(len(path)-1, 1, -1):
                 self.circuit.insert(index, ["cx", [path[i-1], path[i]]])
+        return 4*self.architecture.distances[a][b] - 4
 
     def context_window(self, index, window_length):
         '''Provides the next window_length cx gates. Will be mapped into an embedding
-        before passed into NN. [-1, -1] means "nothing to do here, padding" '''
+        before passed into NN. [Q, Q] means "nothing to do here, padding" '''
+        Q = self.architecture.qubit_count
         i = index
         window = []
         while len(window) < window_length and i < len(self.circuit):
             if self.circuit[i][0] == "cx":
                 window.append(self.circuit[i][1])
             i += 1
-        window += [[-1, -1]]*window_length-len(window)
-        return window
+        window += [[Q, Q]]*window_length-len(window)
+        return window, i
+    
         

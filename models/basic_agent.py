@@ -17,7 +17,7 @@ class BasicAgent(nn.Module):
         self.window_len = window_len
         self.bridge_allowed = bridge_allowed
 
-        self.logical_qubit_embedder = QubitEmbedder(self.Q, qubit_embedding_dim)
+        self.logical_qubit_embedder = QubitEmbedder(self.Q + 1, qubit_embedding_dim)
         self.hardware_qubit_embedder = QubitEmbedder(self.Q + 1, qubit_embedding_dim)
 
         self.interaction_table_embedder = InteractionTableEncoder(self.Q)

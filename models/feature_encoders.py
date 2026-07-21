@@ -20,6 +20,7 @@ class InteractionTableEncoder(nn.Module):
         return torch.sqrt(interaction_mat[..., self.row_idx, self.col_idx])
     
 class QubitEmbedder(nn.Module):
+    '''Converts Qubits to an embedding.'''
     def __init__(self, Q, embedding_dim):
         super().__init__()
         self.Q = Q
@@ -91,6 +92,8 @@ class LayoutEmbedder(nn.Module):
 
     
 class StateEmbedder(nn.Module):
+    '''Takes in all relevant information regarding the state; Interaction table, context window, layout embedding,
+    passes through 1 hidden layer, then finally embeds state'''
     def __init__(self, itf: InteractionTableEncoder, gse: GateSeqEmbedder,le: LayoutEmbedder, hidden_dim, embedding_dim):
         super().__init__()
         self.itf = itf
@@ -108,6 +111,8 @@ class StateEmbedder(nn.Module):
         flattened_mat = self.itf(interaction_mat)
         embedded_seq = self.gse(gate_seq)
         embedded_layout = self.le(layout_table)
+
+        # concatenate states along content dimension (batch dim preserved)
         concat_state = torch.cat([flattened_mat, embedded_seq, embedded_layout], dim=1)
         return self.shared_trunk(concat_state)
         
