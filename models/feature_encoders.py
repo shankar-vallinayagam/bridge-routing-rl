@@ -91,19 +91,17 @@ class LayoutEmbedder(nn.Module):
         return layout_embeddings.flatten(start_dim=1)
 
     
-class StateEmbedder(nn.Module):
+class LayoutStateEmbedder(nn.Module):
     '''Takes in all relevant information regarding the state; Interaction table, context window, layout embedding,
     passes through 1 hidden layer, then finally embeds state'''
-    def __init__(self, itf: InteractionTableEncoder, gse: GateSeqEmbedder,le: LayoutEmbedder, hidden_dim, embedding_dim):
+    def __init__(self, itf: InteractionTableEncoder, gse: GateSeqEmbedder,le: LayoutEmbedder, embedding_dim):
         super().__init__()
         self.itf = itf
         self.gse = gse
         self.le = le
         self.shared_trunk = nn.Sequential(
-            nn.Linear(self.itf.output_dim + self.gse.output_dim + self.le.output_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, embedding_dim),
+            nn.Linear(self.itf.output_dim + self.gse.output_dim + self.le.output_dim, embedding_dim),
+            nn.LayerNorm(embedding_dim),
             nn.ReLU()
         )
 
@@ -116,7 +114,33 @@ class StateEmbedder(nn.Module):
         concat_state = torch.cat([flattened_mat, embedded_seq, embedded_layout], dim=1)
         return self.shared_trunk(concat_state)
         
+class RoutingStateEmbedder(nn.Module):
+    '''Takes in all relevant information regarding the state; Interaction table, context window, layout embedding,
+    passes through 1 hidden layer, then finally embeds state'''
+    def __init__(self, itf: InteractionTableEncoder, gse: GateSeqEmbedder, embedding_dim):
+        super().__init__()
+        self.itf = itf
+        self.gse = gse
+        self.shared_trunk = nn.Sequential(
+            nn.Linear(self.itf.output_dim + self.gse.output_dim + self.le.output_dim, embedding_dim),
+            nn.LayerNorm(embedding_dim),
+            nn.ReLU()
+        )
+
+    def forward(self, interaction_mat, gate_seq):
+        flattened_mat = self.itf(interaction_mat)
+        embedded_seq = self.gse(gate_seq)
+
+        # concatenate states along content dimension (batch dim preserved)
+        concat_state = torch.cat([flattened_mat, embedded_seq], dim=1)
+        return self.shared_trunk(concat_state)
+        
 
 
-# TODO: Later, add attention encoder to be swapped out for LinearEncoder to encode the output of GateSeqEmbedder,
-# TODO: Add GNN encoder for interaction mat
+
+
+
+
+
+
+
