@@ -35,6 +35,12 @@ class LayoutAgent(nn.Module):
 
         self.layout_action_head = ActionHead(state_embedding_dim, action_hidden_dim, Q)
 
+        self.layout_value_head = nn.Sequential(
+            nn.Linear(state_embedding_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)
+        )
+
     def forward(self, interaction_mat, gate_seq, layout_table):
             state = self.state_embedder(
                 interaction_mat,
@@ -56,7 +62,9 @@ class LayoutAgent(nn.Module):
             # fills first Q actions
             logits[:, :self.Q] = layout_logits
 
-            return logits
+            value = self.value_head(state).squeeze(-1)
+
+            return logits, value
 
 class RoutingAgent(nn.module):
 
@@ -79,6 +87,12 @@ class RoutingAgent(nn.module):
                 )
 
             self.routing_action_head = ActionHead(state_embedding_dim, action_hidden_dim, Q)
+            self.routing_value_head = nn.Sequential(
+                nn.Linear(state_embedding_dim, 128),
+                nn.ReLU(),
+                nn.Linear(128, 1)
+            )
+
 
     def forward(self, interaction_mat, gate_seq):
             state = self.state_embedder(
@@ -100,4 +114,6 @@ class RoutingAgent(nn.module):
             # fills first Q actions
             logits[:, :self.Q] = routing_logits
 
-            return logits
+            value = self.value_head(state).squeeze(-1)
+
+            return logits, value

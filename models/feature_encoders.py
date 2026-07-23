@@ -122,7 +122,7 @@ class RoutingStateEmbedder(nn.Module):
         self.itf = itf
         self.gse = gse
         self.shared_trunk = nn.Sequential(
-            nn.Linear(self.itf.output_dim + self.gse.output_dim + self.le.output_dim, embedding_dim),
+            nn.Linear(self.itf.output_dim + self.gse.output_dim, embedding_dim),
             nn.LayerNorm(embedding_dim),
             nn.ReLU()
         )

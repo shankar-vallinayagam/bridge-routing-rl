@@ -23,7 +23,7 @@ class ChipHardware:
 
         self.distances, self.parent = self._compute_shortest_paths()
         self.edge_count = sum(len(neighbors) for neighbors in self.adj_list) // 2
-        self.edges = self._compute_edge_list()
+        self.edges= self._compute_edge_list()
 
 
     def _compute_shortest_paths(self):
@@ -52,10 +52,13 @@ class ChipHardware:
     
     def _compute_edge_list(self):
         edge_list = []
+        edge_dict = []
         for i in range(len(self.adj_list)):
+            edge_dict.append([])
             for j in self.adj_list[i]:
                 if [j, i] not in edge_list:
                     edge_list.append([i,j])
+                edge_dict[i].append(j)
         return edge_list
 
     
