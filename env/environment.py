@@ -13,15 +13,24 @@ class CircuitEnvironment(gym.Env):
     Start off with an immutable copy of the original circuit to allow easy resets.
     Working circuit of course mutable.'''
     
-    def __init__(self, circuit: GateSequence, window_length: int):
+    def __init__(self, architecture: ChipHardware, window_length: int, min_gate_count=1, max_gate_count=10):
         # the working_circuit is treated as mutable, the original circuit
         # is saved to allow resets during training
-        self.original_circuit = copy.deepcopy(circuit)
-        self.working_circuit = copy.deepcopy(circuit)
+        self.architecture = architecture
+
+        # Will be set on reset
+        self.working_circuit = None
+        self.done = None
+        self.layout_phase = None
+        self.layout_count = None
+        self.mapping = None
+        self.index = None
+        self.cnot_count = None
+        self.last_observation = None
 
         self.done = False
-        self.Q = self.original_circuit.architecture.qubit_count
-        self.E = self.original_circuit.architecture.edge_count
+        self.Q = self.architecture.qubit_count
+        self.E = self.architecture.edge_count
 
         self.window_length = window_length
 
@@ -41,8 +50,8 @@ class CircuitEnvironment(gym.Env):
             dtype=np.int32,
         ),
         "layout_table": gym.spaces.Box(
-                low=-1,  # -1 means unassigned
-                high=self.Q-1,
+                low=0,
+                high=self.Q,
                 shape=(self.Q,),
                 dtype=np.int32,
             ),
@@ -56,23 +65,32 @@ class CircuitEnvironment(gym.Env):
 
         self.last_observation = None
 
+    def _get_random_circuit(self):
+        '''Generate a random circuit with gate count between min and max.'''
+        gate_count = np.random.randint(self.min_gate_count, self.max_gate_count + 1)
+        # Vectorized generation (fast)
+        q1 = np.random.randint(0, self.Q, size=gate_count)
+        q2 = np.random.randint(0, self.Q, size=gate_count)
+        # Fix self-loops: if q1 == q2, resample q2 until different
+        mask = (q1 == q2)
+        while np.any(mask):
+            q2[mask] = np.random.randint(0, self.Q, size=np.sum(mask))
+            mask = (q1 == q2)
+        # Build circuit list in required format: ["cx", [q1, q2]]
+        circuit = [["cx", [int(q1[i]), int(q2[i])]] for i in range(gate_count)]
+        return GateSequence(self.architecture, circuit)
 
-        # See _get_action to see actions; first Q are layout phase actions, next E are swaps, and the last is
-        # turning the next gate into a BRIDGE
-        self.action_space = gym.spaces.Discrete(self.Q+self.E+1)
-        # layout phase is the starting few steps where we can free of charge
-        # allocate logical qubits to physical ones
-        self.layout_phase = True
-        self.layout_count = 0
-        self.mapping  = np.full(self.Q, self.Q, dtype=np.int32)
-
-        self.index = 0
-        self.cnot_count = 0
     
-    def reset(self, *, seed = None):
+    def reset(self, *, seed = None, options=None):
         '''resets back to original state'''
         super().reset(seed=seed)
-        self.working_circuit = copy.deepcopy(self.original_circuit)
+
+        if options and "circuit" in options:
+            circuit = options["circuit"]
+        else:
+            circuit = self._get_random_circuit()
+
+        self.working_circuit = copy.deepcopy(circuit)
         self.done = False
         self.layout_phase = True
         self.layout_count = 0
@@ -109,7 +127,7 @@ class CircuitEnvironment(gym.Env):
             self.index += steps
             observation = self._get_observation()
             info = self._get_info()
-            if self.index >= len(self.working_circuit.circuit):
+            if self.index >= len(self.circuit):
                 self.done = True
             return observation, gates_compiled-3, self.done, False, info
 
@@ -118,7 +136,7 @@ class CircuitEnvironment(gym.Env):
             self.index += steps
             observation = self._get_observation()
             info = self._get_info()
-            if self.index >= len(self.working_circuit):
+            if self.index >= len(self.working_circuit.circuit):
                 self.done = True
             return observation, 1-steps, self.done, False, info
 
@@ -165,12 +183,6 @@ class CircuitEnvironment(gym.Env):
             return [i<self.Q for i in range(self.Q+self.E+1)]
         else:
             return [i >= self.Q for i in range(self.Q+self.E+1)]
-        
-
-
-    
-
-
 
 
 
