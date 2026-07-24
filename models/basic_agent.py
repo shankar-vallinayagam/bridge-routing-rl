@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from feature_encoders import (
+from models.feature_encoders import (
     QubitEmbedder,
     InteractionTableEncoder,
     GateSeqEmbedder,
@@ -9,7 +9,7 @@ from feature_encoders import (
     LayoutStateEmbedder,
     RoutingStateEmbedder
 )
-from action_heads import ActionHead
+from models.action_heads import ActionHead
 
 class LayoutAgent(nn.Module):
     def __init__(self, Q, E, window_len, hardware_qubit_embedder: QubitEmbedder, qubit_embedding_dim, state_embedding_dim, action_hidden_dim, bridge_allowed):
@@ -66,7 +66,7 @@ class LayoutAgent(nn.Module):
 
             return logits, value
 
-class RoutingAgent(nn.module):
+class RoutingAgent(nn.Module):
 
     def __init__(self, Q, E, window_len, hardware_qubit_embedder: QubitEmbedder, state_embedding_dim, action_hidden_dim, bridge_allowed):
             super().__init__()
