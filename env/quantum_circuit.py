@@ -98,9 +98,9 @@ class GateSequence:
         for j in range(2):
             for i in range(1, len(path)-1):
                 self.circuit.insert(index, ["cx", [path[i], path[i+1]]])
-            for i in range(len(path)-1, 1, -1):
+            for i in range(len(path)-2, 0, -1):
                 self.circuit.insert(index, ["cx", [path[i-1], path[i]]])
-        return 4*self.architecture.distances[a][b] - 4
+        return 4*self.architecture.distances[a][b]
 
     def context_window(self, index, window_length):
         '''Provides the next window_length cx gates. Will be mapped into an embedding
