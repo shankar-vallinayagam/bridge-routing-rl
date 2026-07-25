@@ -62,7 +62,7 @@ class LayoutAgent(nn.Module):
             # fills first Q actions
             logits[:, :self.Q] = layout_logits
 
-            value = self.value_head(state).squeeze(-1)
+            value = self.layout_value_head(state).squeeze(-1)
 
             return logits, value
 
@@ -114,6 +114,6 @@ class RoutingAgent(nn.Module):
             # fills first Q actions
             logits[:, :self.Q] = routing_logits
 
-            value = self.value_head(state).squeeze(-1)
+            value = self.routing_value_head(state).squeeze(-1)
 
             return logits, value

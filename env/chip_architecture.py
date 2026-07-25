@@ -45,7 +45,7 @@ class ChipHardware:
                 for v in self.adj_list[u]:
                     if distances[src, v] == -1:
                         distances[src, v] = distances[src, u] + 1
-                        parent[src, v] = u
+                        parent[src][v] = u
                         queue.append(v)
         
         return distances, parent

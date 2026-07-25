@@ -63,7 +63,14 @@ class CircuitEnvironment(gym.Env):
             )
         })
 
+        self.action_space = gym.spaces.Discrete(
+            architecture.qubit_count+architecture.edge_count+1
+        )
+
         self.last_observation = None
+
+        self.min_gate_count = min_gate_count
+        self.max_gate_count = max_gate_count
 
     def _get_random_circuit(self):
         '''Generate a random circuit with gate count between min and max.'''
@@ -149,7 +156,7 @@ class CircuitEnvironment(gym.Env):
             layout_complete = np.array([not self.layout_phase], dtype=np.bool_)
             
             observation = {
-                "context_window": context_window,
+                "context_window": context_window[0],
                 "interaction_matrix": interaction_matrix,
                 "layout_table": layout_table,
                 "layout_complete": layout_complete

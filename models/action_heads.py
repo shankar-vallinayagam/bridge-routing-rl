@@ -12,3 +12,6 @@ class ActionHead(nn.Module):
             nn.ReLU()
         )
 
+    def forward(self, encoded_state):
+        return self.head(encoded_state)
+

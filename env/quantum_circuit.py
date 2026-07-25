@@ -112,7 +112,7 @@ class GateSequence:
             if self.circuit[i][0] == "cx":
                 window.append(self.circuit[i][1])
             i += 1
-        window += [[Q, Q]]*window_length-len(window)
+        window += [[Q, Q]]*(window_length-len(window))
         return window, i
     
         
