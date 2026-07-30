@@ -23,7 +23,7 @@ class GateSequence:
         self.interaction_mat = self._get_interaction_mat()
 
     def _get_interaction_mat(self):
-        matrix = np.zeros((self.architecture.qubit_count, self.architecture.qubit_count))
+        matrix = np.zeros((self.architecture.Q, self.architecture.Q), dtype=np.int32)
         for i in self.circuit:
             if i[0] == "cx":
                 matrix[i[1][0], i[1][1]] += 1
@@ -105,7 +105,7 @@ class GateSequence:
     def context_window(self, index, window_length):
         '''Provides the next window_length cx gates. Will be mapped into an embedding
         before passed into NN. [Q, Q] means "nothing to do here, padding" '''
-        Q = self.architecture.qubit_count
+        Q = self.architecture.Q
         i = index
         window = []
         while len(window) < window_length and i < len(self.circuit):

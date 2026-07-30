@@ -105,7 +105,9 @@ class TrainingConfig:
     """the number of iterations (computed in runtime)"""
 
 
-
+def torch_dtype(space):
+    '''Helper to access dtype from space'''
+    return torch.from_numpy(np.empty((), dtype=space.dtype)).dtype
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
@@ -119,8 +121,8 @@ class Agent(nn.Module):
 
         self.hardware = env_config.hardware
         self.window_length = env_config.window_length
-        self.Q = self.hardware.qubit_count
-        self.E = self.hardware.edge_count
+        self.Q = self.hardware.Q
+        self.E = self.hardware.E
 
         self.qubit_embedding_dimension = agent_config.qubit_embedding_dim
         self.state_embedding_dimension = agent_config.state_embedding_dim
@@ -150,7 +152,7 @@ class Agent(nn.Module):
         self.routing_actor = OutputHead(self.state_embedding_dimension, self.Q + self.E + 1)
 
     def get_value(self, obs_dict):
-        routing_mask = obs_dict["layout_complete"]  # tensor, shape (batch,), 0=layout 1=routing
+        routing_mask = obs_dict["layout_complete"].squeeze(-1)  # tensor, shape (batch,), 0=layout 1=routing
         layout_mask = ~routing_mask
 
         values = torch.zeros(routing_mask.shape[0], 1, device=routing_mask.device)
@@ -163,7 +165,8 @@ class Agent(nn.Module):
         return values
 
     def get_action_and_value(self, obs_dict, action=None, deterministic=False):
-        routing_batch_mask = obs_dict["layout_complete"]
+        routing_batch_mask = obs_dict["layout_complete"].squeeze(-1)
+        print(routing_batch_mask)
         layout_batch_mask = ~routing_batch_mask
 
         batch = routing_batch_mask.shape[0]
@@ -189,7 +192,8 @@ class Agent(nn.Module):
                 valid.scatter_(1, layout_table, False)
                 action_mask[:, :self.Q] = valid[:, :self.Q]
             else:
-                leading = obs_dict["context_window"][mask]                        # (batch, 2) physical qubit pair
+                # context_window has dim (batch_size, window_length, 2) we need to get the top one
+                leading = obs_dict["context_window"][mask][:, 0, :]                       # (batch, 2) physical qubit pair
                 q0, q1 = leading[:, 0], leading[:, 1]
                 valid_edges = self.hardware.incidence_table[q0] | self.hardware.incidence_table[q1]  # (n_sub, E)
                 action_mask[:, self.Q:self.Q + self.E] = valid_edges
@@ -222,6 +226,7 @@ def make_env(env_config: EnvConfig):
             min_gate_count=env_config.min_gate_count,
             max_gate_count=env_config.max_gate_count
         )
+        return env
     return thunk
         
 def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_config: EnvConfig):
@@ -265,8 +270,12 @@ def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_
 
     # ALGO Logic: Storage setup
     obs = {
-        k: torch.zeros((training_config.num_steps, training_config.num_envs) + v.shape).to(device)
-        for k, v in envs.single_observation_space.spaces.items()
+        k: torch.zeros(
+            (training_config.num_steps, training_config.num_envs) + space.shape,
+            dtype=torch_dtype(space),
+            device=device
+            )
+        for k, space in envs.single_observation_space.spaces.items()
     }
     actions = torch.zeros((training_config.num_steps, training_config.num_envs) + envs.single_action_space.shape).to(device)
     logprobs = torch.zeros((training_config.num_steps, training_config.num_envs)).to(device)
@@ -282,6 +291,7 @@ def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_
     next_done = torch.zeros(training_config.num_envs).to(device)
 
     for iteration in range(1, training_config.num_iterations + 1):
+        print(iteration)
         # Annealing the rate if instructed to do so.
         if training_config.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / training_config.num_iterations
@@ -289,6 +299,7 @@ def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_
             optimizer.param_groups[0]["lr"] = lrnow
 
         for step in range(0, training_config.num_steps):
+            print(" " + str(step))
             global_step += training_config.num_envs
             for k in obs:
                 obs[k][step] = next_obs[k]
@@ -323,7 +334,8 @@ def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_
             lastgaelam = 0
             for t in reversed(range(training_config.num_steps)):
                 if t == training_config.num_steps - 1:
-                    nextnonterminal = 1.0 - next_done
+                    # need to convert next_done to float
+                    nextnonterminal = 1.0 - next_done.float()
                     nextvalues = next_value
                 else:
                     nextnonterminal = 1.0 - dones[t + 1]

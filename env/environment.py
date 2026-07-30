@@ -29,8 +29,8 @@ class CircuitEnvironment(gym.Env):
         self.last_observation = None
 
         self.done = False
-        self.Q = self.architecture.qubit_count
-        self.E = self.architecture.edge_count
+        self.Q = self.architecture.Q
+        self.E = self.architecture.E
 
         self.window_length = window_length
 
@@ -64,7 +64,7 @@ class CircuitEnvironment(gym.Env):
         })
 
         self.action_space = gym.spaces.Discrete(
-            architecture.qubit_count+architecture.edge_count+1
+            architecture.Q+architecture.E+1
         )
 
         self.last_observation = None
@@ -136,7 +136,7 @@ class CircuitEnvironment(gym.Env):
             self.index += steps
             observation = self._get_observation()
             info = self._get_info()
-            if self.index >= len(self.circuit):
+            if self.index >= len(self.working_circuit.circuit):
                 self.done = True
             return observation, gates_compiled-3, self.done, False, info
 
@@ -176,7 +176,7 @@ class CircuitEnvironment(gym.Env):
         given number. For the next E this puts a swap in that specific
         edge. The last 1 it just converts the gate in front into a
         bridge'''
-        edges = self.original_circuit.architecture.edges
+        edges = self.working_circuit.architecture.edges
         if n < self.Q:
             return ("LAYOUT", n)
         elif n < self.Q + self.E:

@@ -19,13 +19,13 @@ class ChipHardware:
     """
 
     def __init__(self, qubit_count: int, adj_list: list[list[int]]):
-        self.qubit_count = qubit_count
+        self.Q = qubit_count
         self.adj_list = adj_list
 
         self.distances, self.parent = self._compute_shortest_paths()
-        self.edge_count = sum(len(neighbors) for neighbors in self.adj_list) // 2
+        self.E = sum(len(neighbors) for neighbors in self.adj_list) // 2
         self.edges= self._compute_edge_list()
-        self.incidence_table = self._get_incidence_table
+        self.incidence_table = self._get_incidence_table()
 
 
     def _compute_shortest_paths(self):
@@ -34,7 +34,7 @@ class ChipHardware:
         distances[i][j] = hop distance from i to j (-1 if unreachable)
         parent[i][j] = parent node of j on shortest path from i (-1 if no such path), can be used to reconstruct path
         '''
-        Q = self.qubit_count
+        Q = self.Q
         distances = np.full((Q,Q), -1, dtype=np.int64)
         parent = [[None]*Q for node in range(Q)]
 
@@ -77,7 +77,8 @@ class ChipHardware:
 
     def _get_incidence_table(self):
         edges = self.edges  # list of (i, j) pairs, length E
-        incidence = np.zeros(self.Q, self.E, dtype=torch.bool)
+        # we set the padding qubit Q to be unattached to anything
+        incidence = torch.zeros((self.Q + 1, self.E), dtype=torch.bool)
         for e_idx, (i, j) in enumerate(edges):
             incidence[i, e_idx] = True
             incidence[j, e_idx] = True

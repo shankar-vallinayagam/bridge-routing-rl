@@ -106,7 +106,7 @@ class LayoutStateEmbedder(nn.Module):
         )
 
     def forward(self, obs):
-        interaction_mat = obs["interaction_table"]
+        interaction_mat = obs["interaction_matrix"]
         gate_seq = obs["context_window"]
         layout_table = obs["layout_table"]
 
@@ -119,9 +119,9 @@ class LayoutStateEmbedder(nn.Module):
         return self.shared_trunk(concat_state)
         
 class RoutingStateEmbedder(nn.Module):
-    '''Takes in all relevant information regarding the state; Interaction table, context window, layout embedding,
+    '''Takes in all relevant information regarding the state; Interaction table, context window,
     passes through 2 hidden layer, then finally embeds state'''
-    def __init__(self, itf: InteractionTableEncoder, gse: GateSeqEmbedder, le: LayoutEmbedder, embedding_dim):
+    def __init__(self, itf: InteractionTableEncoder, gse: GateSeqEmbedder, embedding_dim):
         super().__init__()
         self.itf = itf
         self.gse = gse
@@ -136,7 +136,7 @@ class RoutingStateEmbedder(nn.Module):
         )
 
     def forward(self, obs):
-        interaction_mat = obs["interaction_table"]
+        interaction_mat = obs["interaction_matrix"]
         gate_seq = obs["context_window"]
 
         flattened_mat = self.itf(interaction_mat)
