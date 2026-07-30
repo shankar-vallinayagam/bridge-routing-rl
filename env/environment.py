@@ -92,6 +92,8 @@ class CircuitEnvironment(gym.Env):
         '''resets back to original state'''
         super().reset(seed=seed)
 
+        # During training, we use random circuits, but for actual use we need to be
+        # able to pass in an actual circuit.
         if options and "circuit" in options:
             circuit = options["circuit"]
         else:

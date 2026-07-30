@@ -1,5 +1,6 @@
 import numpy as np
 from collections import deque
+import torch
 
 class ChipHardware:
     """Physical topology of a quantum processor.
@@ -24,6 +25,7 @@ class ChipHardware:
         self.distances, self.parent = self._compute_shortest_paths()
         self.edge_count = sum(len(neighbors) for neighbors in self.adj_list) // 2
         self.edges= self._compute_edge_list()
+        self.incidence_table = self._get_incidence_table
 
 
     def _compute_shortest_paths(self):
@@ -72,4 +74,12 @@ class ChipHardware:
             path.append(self.parent[a, path[-1]])
         path.reverse()
         return path
+
+    def _get_incidence_table(self):
+        edges = self.edges  # list of (i, j) pairs, length E
+        incidence = np.zeros(self.Q, self.E, dtype=torch.bool)
+        for e_idx, (i, j) in enumerate(edges):
+            incidence[i, e_idx] = True
+            incidence[j, e_idx] = True
+        return incidence
     

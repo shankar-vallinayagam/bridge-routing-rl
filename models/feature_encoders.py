@@ -105,7 +105,11 @@ class LayoutStateEmbedder(nn.Module):
             nn.ReLU()
         )
 
-    def forward(self, interaction_mat, gate_seq, layout_table):
+    def forward(self, obs):
+        interaction_mat = obs["interaction_table"]
+        gate_seq = obs["context_window"]
+        layout_table = obs["layout_table"]
+
         flattened_mat = self.itf(interaction_mat)
         embedded_seq = self.gse(gate_seq)
         embedded_layout = self.le(layout_table)
@@ -116,18 +120,25 @@ class LayoutStateEmbedder(nn.Module):
         
 class RoutingStateEmbedder(nn.Module):
     '''Takes in all relevant information regarding the state; Interaction table, context window, layout embedding,
-    passes through 1 hidden layer, then finally embeds state'''
-    def __init__(self, itf: InteractionTableEncoder, gse: GateSeqEmbedder, embedding_dim):
+    passes through 2 hidden layer, then finally embeds state'''
+    def __init__(self, itf: InteractionTableEncoder, gse: GateSeqEmbedder, le: LayoutEmbedder, embedding_dim):
         super().__init__()
         self.itf = itf
         self.gse = gse
         self.shared_trunk = nn.Sequential(
             nn.Linear(self.itf.output_dim + self.gse.output_dim, embedding_dim),
             nn.LayerNorm(embedding_dim),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Linear(embedding_dim, embedding_dim),
+            nn.LayerNorm(embedding_dim),
+            nn.ReLU(),
+            nn.Linear(embedding_dim, embedding_dim),
         )
 
-    def forward(self, interaction_mat, gate_seq):
+    def forward(self, obs):
+        interaction_mat = obs["interaction_table"]
+        gate_seq = obs["context_window"]
+
         flattened_mat = self.itf(interaction_mat)
         embedded_seq = self.gse(gate_seq)
 

@@ -1,3 +1,7 @@
+"""
+Most likely will be deprecated
+"""
+
 import torch
 from torch import nn
 
@@ -9,7 +13,7 @@ from models.feature_encoders import (
     LayoutStateEmbedder,
     RoutingStateEmbedder
 )
-from models.action_heads import ActionHead
+from models.output_heads import ActionHead
 
 class LayoutAgent(nn.Module):
     def __init__(self, Q, E, window_len, hardware_qubit_embedder: QubitEmbedder, qubit_embedding_dim, state_embedding_dim, action_hidden_dim, bridge_allowed):
