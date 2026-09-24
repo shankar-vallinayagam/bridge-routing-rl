@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import copy
+
 from env.chip_architecture import ChipHardware
 import numpy as np
 
@@ -36,21 +40,29 @@ class GateSequence:
     def hardware_mapping(self, mappings):
         '''Before any gates are run, we can simply permute our choice of qubits for free.
         Mappings is a list where the index gives the position of the logical qubit and
-        the value gives the index in hardware it is mapped to. This is always done at
-        the end, so we don't bother with changing the interaction matrix'''
-        original = self.circuit.copy()
-        for a, b in enumerate(mappings):
-            for i in range(len(original)):
-                if original[i][0] == "cx":
-                    if original[i][1][0] == a:
-                        self.circuit[i][1][0] = b
-                    elif original[i][1][0] == b:
-                        self.circuit[i][1][0] = a
-                else:
-                    if original[i][1] == a:
-                        self.circuit[i][1] = b
-                    elif original[i][1] == b:
-                        self.circuit[i][1] = a
+        the value gives the index in hardware it is mapped to.'''
+        mappings = np.asarray(mappings, dtype=np.int64)
+        if mappings.shape != (self.architecture.Q,):
+            raise ValueError("mappings must contain one hardware qubit per logical qubit")
+        if sorted(mappings.tolist()) != list(range(self.architecture.Q)):
+            raise ValueError("mappings must be a permutation of the hardware qubits")
+
+        # The mapping is logical -> physical.  Rebuild each gate from the
+        # original circuit so a later mapping entry cannot see an earlier
+        # mutation, and remap both endpoints of a CNOT.
+        original = copy.deepcopy(self.circuit)
+        self.circuit = []
+        for gate_name, operands in original:
+            if gate_name == "cx":
+                self.circuit.append(
+                    [gate_name, [int(mappings[operands[0]]), int(mappings[operands[1]])]]
+                )
+            else:
+                self.circuit.append([gate_name, int(mappings[operands])])
+
+        # Interaction counts are consumed by the policy in physical-qubit
+        # coordinates after layout, so they must be remapped as well.
+        self.interaction_mat = self._get_interaction_mat()
 
     def check_valid(self, index):
         '''Returns whether the gate at the given index can take place on the given hardware'''
@@ -70,7 +82,9 @@ class GateSequence:
                 self.interaction_mat[a][b] -= 1
                 self.interaction_mat[b][a] -= 1
             i += 1
-        return i, successfully_compiled
+        # Return the number of circuit entries consumed, not the absolute
+        # cursor.  The environment owns the cursor and increments it once.
+        return i - index, successfully_compiled
  
     def insert_swap(self, index, a, b):
         '''Inserts a swap gate where index i is (gate previously at index i goes to i+3). 
@@ -80,6 +94,22 @@ class GateSequence:
             self.circuit.insert(index, ["cx", [a, b]])
             self.circuit.insert(index, ["cx", [b, a]])
             self.circuit.insert(index, ["cx", [a, b]])
+
+            # The SWAP changes the physical location of every logical qubit
+            # represented by the remaining circuit.  Remap the gates after
+            # the inserted three-CNOT implementation; the three inserted
+            # gates themselves are already expressed in hardware coordinates.
+            for gate in self.circuit[index + 3:]:
+                if gate[0] == "cx":
+                    gate[1] = [
+                        b if qubit == a else a if qubit == b else qubit
+                        for qubit in gate[1]
+                    ]
+                elif gate[1] == a:
+                    gate[1] = b
+                elif gate[1] == b:
+                    gate[1] = a
+
             self.interaction_mat[[a, b], :] = self.interaction_mat[[b, a], :]
             self.interaction_mat[:, [a, b]] = self.interaction_mat[:, [b, a]]
             return 3
@@ -90,17 +120,25 @@ class GateSequence:
         '''Converts the CNOT between 2 points into a BRIDGE gate between them, see
         https://link.springer.com/chapter/10.1007/978-3-032-13852-1_32 for details.
         returns gates added so index can be changed accordingly'''
+        if index >= len(self.circuit) or self.circuit[index][0] != "cx":
+            raise IndexError("cannot bridge without a pending CNOT")
+
         a, b = self.circuit[index][1]
+        self.interaction_mat[a, b] -= 1
+        self.interaction_mat[b, a] -= 1
         # delete the existing CNOT at our index
         del self.circuit[index]
         # get the shortest path between these qubits
         path = self.architecture.get_path(a, b)
+        if path is None:
+            raise ValueError(f"no path exists between qubits {a} and {b}")
         for j in range(2):
             for i in range(1, len(path)-1):
                 self.circuit.insert(index, ["cx", [path[i], path[i+1]]])
             for i in range(len(path)-2, 0, -1):
                 self.circuit.insert(index, ["cx", [path[i-1], path[i]]])
-        return 4*self.architecture.distances[a][b]
+        inserted = 4 * max(len(path) - 2, 0)
+        return inserted
 
     def context_window(self, index, window_length):
         '''Provides the next window_length cx gates. Will be mapped into an embedding

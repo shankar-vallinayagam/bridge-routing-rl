@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 from collections import deque
 import torch
@@ -20,7 +22,9 @@ class ChipHardware:
 
     def __init__(self, qubit_count: int, adj_list: list[list[int]]):
         self.Q = qubit_count
-        self.adj_list = adj_list
+        if len(adj_list) != qubit_count:
+            raise ValueError("adj_list must contain one entry per qubit")
+        self.adj_list = [list(neighbors) for neighbors in adj_list]
 
         self.distances, self.parent = self._compute_shortest_paths()
         self.E = sum(len(neighbors) for neighbors in self.adj_list) // 2
@@ -66,12 +70,12 @@ class ChipHardware:
     
     def get_path(self, a, b):
         """Gets shortest path from a to b. If no such exists, return None"""
-        if self.distances[a, b] is None:
+        if self.distances[a, b] < 0:
             return None
 
         path = [b]
         while path[-1] != a:
-            path.append(self.parent[a, path[-1]])
+            path.append(self.parent[a][path[-1]])
         path.reverse()
         return path
 

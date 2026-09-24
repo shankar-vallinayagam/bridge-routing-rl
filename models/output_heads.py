@@ -12,3 +12,6 @@ class OutputHead(nn.Module):
         return self.head(encoded_state)
 
 
+# Kept for compatibility with the older split-agent implementation.
+ActionHead = OutputHead
+

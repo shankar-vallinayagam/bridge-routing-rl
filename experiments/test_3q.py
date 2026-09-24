@@ -1,6 +1,14 @@
 """
 Minimal test that pipeline works
 """
+import sys
+from pathlib import Path
+
+# Allow both `python experiments/test_3q.py` and
+# `python -m experiments.test_3q` from the repository root.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from rl.ppo import TrainingConfig, AgentConfig, EnvConfig, train_model
 from env.chip_architecture import ChipHardware
 

@@ -157,16 +157,20 @@ class Agent(nn.Module):
 
         values = torch.zeros(routing_mask.shape[0], 1, device=routing_mask.device)
         if layout_mask.any():
-            layout_state = self.layout_state_embedder(obs_dict)
+            layout_state = self.layout_state_embedder(self._select_obs(obs_dict, layout_mask))
             values[layout_mask] = self.layout_critic(layout_state)
         if routing_mask.any():
-            routing_state = self.routing_state_embedder(obs_dict)
+            routing_state = self.routing_state_embedder(self._select_obs(obs_dict, routing_mask))
             values[routing_mask] = self.routing_critic(routing_state)
         return values
 
+    @staticmethod
+    def _select_obs(obs_dict, mask):
+        """Select the same subset from every batched observation field."""
+        return {key: value[mask] for key, value in obs_dict.items()}
+
     def get_action_and_value(self, obs_dict, action=None, deterministic=False):
         routing_batch_mask = obs_dict["layout_complete"].squeeze(-1)
-        print(routing_batch_mask)
         layout_batch_mask = ~routing_batch_mask
 
         batch = routing_batch_mask.shape[0]
@@ -182,21 +186,31 @@ class Agent(nn.Module):
             if not mask.any():
                 continue
 
-            state = state_embedder(obs_dict)
+            selected_obs = self._select_obs(obs_dict, mask)
+            state = state_embedder(selected_obs)
             logits = actor(state)  # (batch, Q + E + 1)
 
             action_mask = torch.zeros(mask.sum(), self.Q + self.E + 1, dtype=torch.bool, device=mask.device)
             if is_layout:
-                layout_table = obs_dict["layout_table"][mask]                      # (batch, K), padded with self.Q
+                layout_table = selected_obs["layout_table"].long()                 # (batch, K), padded with self.Q
                 valid = torch.ones(layout_table.shape[0], self.Q + 1, dtype=torch.bool, device=mask.device)
                 valid.scatter_(1, layout_table, False)
                 action_mask[:, :self.Q] = valid[:, :self.Q]
             else:
                 # context_window has dim (batch_size, window_length, 2) we need to get the top one
-                leading = obs_dict["context_window"][mask][:, 0, :]                       # (batch, 2) physical qubit pair
-                q0, q1 = leading[:, 0], leading[:, 1]
+                leading = selected_obs["context_window"][:, 0, :]                       # (batch, 2) physical qubit pair
+                q0, q1 = leading[:, 0].long(), leading[:, 1].long()
                 valid_edges = self.hardware.incidence_table[q0] | self.hardware.incidence_table[q1]  # (n_sub, E)
                 action_mask[:, self.Q:self.Q + self.E] = valid_edges
+
+                # A bridge is only meaningful for a non-adjacent pending
+                # CNOT.  Adjacent CNOTs are consumed automatically by the
+                # environment's compiler.
+                adjacent = torch.zeros(mask.sum(), dtype=torch.bool, device=mask.device)
+                for row, (a, b) in enumerate(zip(q0.tolist(), q1.tolist())):
+                    if a < self.Q and b < self.Q:
+                        adjacent[row] = b in self.hardware.adj_list[a]
+                action_mask[:, -1] = ~adjacent
 
             logits = logits.masked_fill(~action_mask, torch.finfo(logits.dtype).min)
             dist = Categorical(logits=logits)
@@ -291,7 +305,6 @@ def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_
     next_done = torch.zeros(training_config.num_envs).to(device)
 
     for iteration in range(1, training_config.num_iterations + 1):
-        print(iteration)
         # Annealing the rate if instructed to do so.
         if training_config.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / training_config.num_iterations
@@ -299,7 +312,6 @@ def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_
             optimizer.param_groups[0]["lr"] = lrnow
 
         for step in range(0, training_config.num_steps):
-            print(" " + str(step))
             global_step += training_config.num_envs
             for k in obs:
                 obs[k][step] = next_obs[k]
@@ -437,4 +449,3 @@ def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_
 
     envs.close()
     writer.close()
-

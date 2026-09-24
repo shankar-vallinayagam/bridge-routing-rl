@@ -123,7 +123,11 @@ class CircuitEnvironment(gym.Env):
             if self.layout_count >= self.Q:
                 self.layout_phase = False
                 self.working_circuit.hardware_mapping(self.mapping)
-            observation = self._get_observation(unchanged=self.layout_phase)
+            # The layout table changes after every placement and must be
+            # visible to the policy so it can mask already-used hardware
+            # qubits.  The circuit cursor is unchanged, but the observation
+            # itself is not.
+            observation = self._get_observation()
             info = self._get_info()
             return observation, 0.0, False, False, info
 
@@ -192,7 +196,3 @@ class CircuitEnvironment(gym.Env):
             return [i<self.Q for i in range(self.Q+self.E+1)]
         else:
             return [i >= self.Q for i in range(self.Q+self.E+1)]
-
-
-
-        

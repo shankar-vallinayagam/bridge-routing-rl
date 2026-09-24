@@ -46,11 +46,11 @@ class LayoutAgent(nn.Module):
         )
 
     def forward(self, interaction_mat, gate_seq, layout_table):
-            state = self.state_embedder(
-                interaction_mat,
-                gate_seq,
-                layout_table
-            )
+            state = self.state_embedder({
+                "interaction_matrix": interaction_mat,
+                "context_window": gate_seq,
+                "layout_table": layout_table,
+            })
             
             batch_size = state.shape[0]
             total_actions = self.Q + self.E + 1
@@ -99,10 +99,10 @@ class RoutingAgent(nn.Module):
 
 
     def forward(self, interaction_mat, gate_seq):
-            state = self.state_embedder(
-                interaction_mat,
-                gate_seq
-            )
+            state = self.state_embedder({
+                "interaction_matrix": interaction_mat,
+                "context_window": gate_seq,
+            })
             
             batch_size = state.shape[0]
             total_actions = self.Q + self.E + 1
