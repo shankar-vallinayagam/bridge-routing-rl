@@ -1,0 +1,15 @@
+{
+  "topology_id": "line_3",
+  "experiment_id": "ppo_baseline",
+  "total_timesteps": 1000000,
+  "num_envs": 8,
+  "num_steps": 128,
+  "num_minibatches": 8,
+  "update_epochs": 4,
+  "window_length": 12,
+  "min_gates": 5,
+  "max_gates": 20,
+  "state_dim": 128,
+  "qubit_dim": 16,
+  "checkpoint_interval": 25
+}

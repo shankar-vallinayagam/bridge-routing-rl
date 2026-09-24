@@ -4,6 +4,12 @@ Minimal test that pipeline works
 import sys
 from pathlib import Path
 
+if sys.version_info < (3, 9):
+    raise RuntimeError(
+        "Python 3.9 or newer is required. Run this project with "
+        "'.venv/bin/python' instead of the system Python 3.8 interpreter."
+    )
+
 # Allow both `python experiments/test_3q.py` and
 # `python -m experiments.test_3q` from the repository root.
 if __package__ in (None, ""):

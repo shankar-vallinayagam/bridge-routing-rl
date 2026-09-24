@@ -1,0 +1,15 @@
+{
+  "topology_id": "line_3",
+  "experiment_id": "ppo_deep_10m",
+  "total_timesteps": 10000384,
+  "num_envs": 8,
+  "num_steps": 128,
+  "num_minibatches": 8,
+  "update_epochs": 4,
+  "window_length": 24,
+  "min_gates": 10,
+  "max_gates": 50,
+  "state_dim": 128,
+  "qubit_dim": 16,
+  "checkpoint_interval": 100
+}

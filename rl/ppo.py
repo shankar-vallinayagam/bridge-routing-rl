@@ -7,6 +7,14 @@ import random
 import time
 from dataclasses import dataclass
 import pickle
+import sys
+from pathlib import Path
+
+if sys.version_info < (3, 9):
+    raise RuntimeError(
+        "Python 3.9 or newer is required. Run this project with "
+        "'.venv/bin/python' instead of the system Python 3.8 interpreter."
+    )
 
 import gymnasium as gym
 import numpy as np
@@ -95,6 +103,9 @@ class TrainingConfig:
 
     checkpoint_interval: int = 50
     """The number of iterations to save a checkpoint (in case of crash on long runs)"""
+
+    output_dir: str = None
+    """Root directory for this run's ``runs`` and ``checkpoints`` folders."""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -260,7 +271,11 @@ def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_
             monitor_gym=True,
             save_code=True,
         )
-    writer = SummaryWriter(f"runs/{run_name}")
+    project_root = Path(__file__).resolve().parents[1]
+    output_root = Path(training_config.output_dir) if training_config.output_dir else project_root
+    runs_dir = output_root / "runs"
+    checkpoints_dir = output_root / "checkpoints"
+    writer = SummaryWriter(log_dir=str(runs_dir / run_name), flush_secs=5)
     writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(training_config).items()])),
@@ -436,16 +451,19 @@ def train_model(training_config: TrainingConfig, agent_config: AgentConfig, env_
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
         # Regular checkpoints
-        os.makedirs("checkpoints", exist_ok=True)
+        os.makedirs(checkpoints_dir, exist_ok=True)
+        writer.flush()
         if iteration % training_config.checkpoint_interval == 0:
-            torch.save(agent.state_dict(), f"checkpoints/{run_name}_iter{iteration}.pt")
+            torch.save(agent.state_dict(), checkpoints_dir / f"{run_name}_iter{iteration}.pt")
 
     
-    torch.save(agent.state_dict(), f"checkpoints/{run_name}.pt")
-    with open(f"checkpoints/{run_name}_config.pkl", "wb") as f:
+    os.makedirs(checkpoints_dir, exist_ok=True)
+    torch.save(agent.state_dict(), checkpoints_dir / f"{run_name}.pt")
+    with open(checkpoints_dir / f"{run_name}_config.pkl", "wb") as f:
         pickle.dump({"agent_config": agent_config, "env_config": env_config}, f)
 
 
 
     envs.close()
     writer.close()
+    return run_name

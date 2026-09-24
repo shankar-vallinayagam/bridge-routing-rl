@@ -1,0 +1,13 @@
+{
+  "case_count": 75,
+  "cases_per_depth": 25,
+  "depths": [
+    5,
+    10,
+    20
+  ],
+  "generator": "generate_suite.py",
+  "seed": 20260924,
+  "suite_id": "random_v1",
+  "topology_id": "line_3"
+}

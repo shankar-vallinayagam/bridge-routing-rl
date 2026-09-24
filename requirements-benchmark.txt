@@ -1,0 +1,2 @@
+# Optional benchmark adapter for Qiskit's current SABRE/LightSABRE implementation.
+qiskit>=2.0,<3

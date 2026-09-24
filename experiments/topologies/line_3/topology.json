@@ -1,0 +1,5 @@
+{
+  "topology_id": "line_3",
+  "qubit_count": 3,
+  "edges": [[0, 1], [1, 2]]
+}
