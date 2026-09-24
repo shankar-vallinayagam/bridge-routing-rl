@@ -12,6 +12,16 @@ Bridge-Routing-RL is a reinforcement learning framework for compiling quantum ci
 
 This project is licensed under the [BSD 3-Clause License](LICENSE).
 
+## Results so far
+
+On the 3-qubit run, with a 24-gate context window, benchmarking on up to 50-gate circuits against SABRE, the following performance was achieved:
+
+```
+qiskit_sabre_lightsabre: cases=125, mean_added_cnot=24.984, min=3, max=60
+random_valid_router: cases=125, mean_added_cnot=39.408, min=6, max=102
+trained_agent: cases=125, mean_added_cnot=21.432, min=3, max=51
+```
+
 ## Training a serious 3-qubit run
 
 Use the project virtual environment so the training and TensorBoard commands
